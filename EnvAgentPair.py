@@ -23,6 +23,7 @@ class EnvAgentPair():
                  mutpower = 0.01,
                  lr = 0.01,
                  samplefreq = 50,
+                 samplefreqpc = 0.1,
                  k = 10,
                  maxframes = 1000,
                  framespercell = None,
@@ -50,6 +51,7 @@ class EnvAgentPair():
         self.mutpower        = mutpower
         self.lr              = lr
         self.samplefreq      = samplefreq
+        self.samplefreqpc    = samplefreqpc
         self.k               = k
         self.maxframes       = maxframes
         self.framespercell   = framespercell
@@ -67,8 +69,8 @@ class EnvAgentPair():
             self.maxframes = int(self.y * self.x * self.framespercell)
             
         #can set sample freq to eg. 0.1 to sample every 10% of maxframes
-        if isinstance(samplefreq,float):
-            self.samplefreq = max(int(self.maxframes * samplefreq),1)
+        if samplefreqpc is not None:
+            self.samplefreq = max(int(self.maxframes * samplefreqpc),1)
 
         #rendering video
         self.agentstorender  = agentstorender
@@ -280,6 +282,7 @@ class EnvAgentPair():
             dif = (self.maxframes - t)//self.samplefreq
             #make extra the ending cell
             extra = np.ones(dif*self.numagents)*self.env.endind
+            print(self.y,self.x,dif,t,self.maxframes,self.samplefreq,extra.shape)
             behaviour = np.append(behaviour,np.ones(dif*self.numagents)*self.env.endind)
         cellsvisited = len(np.unique(behaviour))
         return framestofindend, framesused, cellsvisited, behaviour
@@ -388,10 +391,11 @@ class EnvAgentPair():
                     
                 seed += 1
                 if sizemut:
+                    eap.resetinputs() #to adjust framespercell/maxframes for new y and x
                     eap.env.mutate(eap.y,eap.x,0,0,seed)
                     newmaze = True #we will get a different maze than the parent
                 else:
-                    eap.env.mutate(eap.y,eap.x,eap.nummuts,eap.mazemutpower,seed)
+                    eap.env.mutate(eap.y,eap.x,eap.mazemutpower,eap.nummuts,seed)
                     newmaze = eap.env.isdifferent(self.env) #check if we get different maze than parent
                     
                 #check if new maze is different from other mutations generated
@@ -406,6 +410,7 @@ class EnvAgentPair():
                     generated = True
                     
                 attempts += 1
+                seed += 1
                 #also do decaying mutpower or that grows with no new behaviours found
         return mutations
     
@@ -452,6 +457,7 @@ class EnvAgentPair():
                            mutpower        = self.mutpower,
                            lr              = self.lr,
                            samplefreq      = self.samplefreq,
+                           samplefreqpc    = self.samplefreqpc,
                            k               = self.k,
                            maxframes       = self.maxframes,
                            framespercell   = self.framespercell,
@@ -496,7 +502,88 @@ class EnvAgentPair():
                       render = False)
         
         return eap
-    
+
+    def resetinputs(self,
+                    y = None,
+                    x = None,
+                    seed = None,
+                    p_width = None,
+                    popsize = None,
+                    testsize = None,
+                    numagents = None,
+                    mutpower = None,
+                    lr = None,
+                    samplefreq = None,
+                    samplefreqpc = None,
+                    k = None,
+                    maxframes = None,
+                    framespercell = None,
+                    noveltythresh = None,
+                    maxarchsize = None,
+                    obssize = None,
+                    exitfoundreward = None,
+                    agentstorender = None,
+                    interval_delay = None,
+                    repeat_delay = None,
+                    psizemut = None,
+                    nummuts = None,
+                    mazemutpower = None,
+                    numactions = None):
+
+        if y is not None:
+            self.y = y
+        if x is not None:
+            self.x = x
+        if p_width is not None:
+            self.p_width = p_width
+        if popsize is not None:
+            self.popsize = popsize
+        if testsize is not None:
+            self.testsize = testsize
+        if numagents is not None:
+            self.numagents = numagents
+        if mutpower is not None:
+            self.mutpower = mutpower
+        if lr is not None:
+            self.lr = lr
+        if samplefreq is not None:
+            self.samplefreq = samplefreq
+        if samplefreqpc is not None:
+            self.samplefreqpc = samplefreqpc
+        if k is not None:
+            self.k = k
+        if maxframes is not None:
+            self.maxframes = maxframes
+        if framespercell is not None:
+            self.framespercell = framespercell
+        if seed is not None:
+            self.seed = seed
+        if noveltythresh is not None:
+            self.noveltythresh = noveltythresh
+        if maxarchsize is not None:
+            self.maxarchsize = maxarchsize
+        if obssize is not None:
+            self.obssize = obssize
+        if exitfoundreward is not None:
+            self.exitfoundreward = exitfoundreward
+        if psizemut is not None:
+            self.psizemut = psizemut
+        if nummuts is not None:
+            self.nummuts = nummuts
+        if mazemutpower is not None:
+            self.mazemutpower = mazemutpower
+        if numactions is not None:
+            self.numactions = numactions
+
+        if framespercell is not None:
+            self.maxframes = int(self.y * self.x * self.framespercell)
+
+        #can set sample freq to eg. 0.1 to sample every 10% of maxframes
+        if self.samplefreqpc is not None:
+            self.samplefreq = max(int(self.maxframes * self.samplefreqpc),1)
+
+        return
+
     def storemutdist(self,path):
         self.path = path
         file = open(path+"eap{}_mutdist_era{}.pickle".format(self.id,self.curera),'wb+')
@@ -518,7 +605,9 @@ class EnvAgentPair():
         file.close()
         return 
     
-    def load(self,path,eapid):
+    def load(self,path,eapid,verbose = False):
+        if verbose:
+            print("loading EnvAgentPair id {} from {}".format(eapid,path))
         file = open(path+'eap{}.pickle'.format(eapid),'rb')
         data = file.read()
         file.close()

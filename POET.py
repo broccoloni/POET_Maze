@@ -15,7 +15,8 @@ class POET():
                  transferfreq  = 20, 
                  eps           = 0, 
                  framespercell = 40, 
-                 samplefreq    = 0.1,
+                 samplefreq    = 50,
+                 samplefreqpc  = 0.1,
                  seed          = 6671111, 
                  maxeaps       = 30, 
                  maxchildren   = 3, 
@@ -40,6 +41,7 @@ class POET():
         self.savefreq      = savefreq
         self.framespercell = framespercell
         self.samplefreq    = samplefreq
+        self.samplefreqpc  = samplefreqpc
         self.maxeaps       = maxeaps
         self.maxchildren   = maxchildren
         self.maxadmitted   = maxadmitted
@@ -61,28 +63,30 @@ class POET():
             os.mkdir(self.savedir)
         if not os.path.isdir(self.savedir+"POETsaves/"):
             os.mkdir(self.savedir+"POETsaves/")
-        self.path = self.savedir + "POETsaves/poeteps{}v{}n{}/".format(self.eps,self.version,self.numactions)
+        self.path = self.savedir + "POETsaves/poeteps{}v{}n{}/".format(int(self.eps*100),self.version,self.numactions)
         self.eappath  = self.path+"eaps/"
         if not os.path.isdir(self.path):
             os.mkdir(self.path)
         if not os.path.isdir(self.eappath):
             os.mkdir(self.eappath)
-
-        firsteap = EnvAgentPair(self.starty,
-                                self.startx,
-                                seed = self.seed,
-                                mutpower = self.sigma,
-                                lr = self.lr,
-                                framespercell = self.framespercell,
-                                samplefreq = self.samplefreq,
-                                numactions = self.numactions)
-        firsteap.save(self.eappath)
-
     
     def run(self,n):
         for j,i in enumerate(range(self.curiters,self.curiters+n)):
             if self.verbose:
                 print("iteration:",i)
+        
+            #create first agent on first iteration
+            if i == 0:
+                firsteap = EnvAgentPair(self.starty,
+                                        self.startx,
+                                        seed = self.seed,
+                                        mutpower = self.sigma,
+                                        lr = self.lr,
+                                        framespercell = self.framespercell,
+                                        samplefreqpc = self.samplefreqpc,
+                                        numactions = self.numactions)
+                firsteap.save(self.eappath)
+                del firsteap
                 
             #saving
             if j > 0 and i % self.savefreq == 0:
@@ -121,6 +125,7 @@ class POET():
                         score = scores[passer]
                         transfers.append([eapid,newagentid])
                         self.transferarch.append([eapid,newagentid,self.curiters])
+                    del eap
                 self.transfer_agents(transfers)
             
             if self.verbose:
@@ -128,6 +133,7 @@ class POET():
                 for eapid in self.activeeaps:
                     eap = self.geteapfromid(eapid)
                     print("eap",eap.id,"score",eap.eapscores[eap.id])
+                    del eap
             self.curiters += 1
         return
     
@@ -138,6 +144,7 @@ class POET():
             eap = self.geteapfromid(eapid)
             if eap.validparent:
                 validparents.append(eapid)
+            del eap
         if self.verbose:
             print("valid parents:",validparents)
         if len(validparents) == 0:
@@ -195,7 +202,8 @@ class POET():
                 for childind in passing_children:
                     eap.eapscores.append(deepcopy(scoresonchildren[childind][eapid]))
                 eap.save(self.eappath)
-                
+                del eap
+
         transfers = []
         for i,childind in enumerate(passing_children):
             child = children[childind]
@@ -223,7 +231,11 @@ class POET():
             
             #save child
             child.save(self.eappath)
-            
+
+        #delete children
+        for child in children:
+            del child
+
         #transfer the best agents into them
         self.transfer_agents(transfers)
             
@@ -237,6 +249,7 @@ class POET():
                 eap.active = False
                 eap.bestagentupdated = False
                 eap.save(self.eappath)
+                del eap
             self.activeeaps  = self.activeeaps[num_removals:]
         return
         
@@ -264,6 +277,7 @@ class POET():
                 child.agentarch          = [child.curgen]
                 child.curera             = -1 #since we'll change it right away with tranfer
                 allchildren.append(child)
+            del eap
         return allchildren
     
     def evaluate_candidates(self,eap):
@@ -297,7 +311,7 @@ class POET():
         if p < 1-self.eps:
             mininds = np.where(fusedscores == fusedscores.min())[0]
             if len(mininds) > 1:
-                return mininds[np.argmax(ftfendscores)]
+                return mininds[np.argmax(ftfendscores[mininds])]
             else:
                 return mininds[0]
         else:
@@ -317,13 +331,16 @@ class POET():
             distances  = []
             eapscores  = []
             bestagents = []
+            curgens     = []
             for agentid in agentids:
                 agenteap = self.geteapfromid(agentid)
                 mutations.append(deepcopy(agenteap.mutations))
                 distances.append(deepcopy(agenteap.distances))
                 eapscores.append(deepcopy(agenteap.eapscores))
                 bestagents.append(deepcopy(agenteap.bestagent))
-                
+                curgens.append(deepcopy(agenteap.curgen))
+                del agenteap
+
             for i in range(len(transfers)):
                 envid = envids[i]
                 if envid != agentid:
@@ -335,7 +352,8 @@ class POET():
                     #increase era for enveap and update agent archive
                     enveap.curera += 1
                     enveap.agentarch.append(deepcopy(enveap.curgen))
-                    
+                    enveap.curgen = deepcopy(curgens[i])
+
                     #store previous mutations and give it the new ones
                     enveap.storemutdist(self.eappath)
                     enveap.mutations = deepcopy(mutations[i])
@@ -354,16 +372,12 @@ class POET():
                     enveap.updateagent()
                     
                     enveap.save(self.eappath)
-                    #change score in case of child environment where we haven't stores 
-                    #this agents performance on this env
-#                     if scores is not None:
-#                         enveap.eapscores[enveap.id] = deepcopy(scores[i])
-#                         agenteap.eapscores[enveap.id] = deepcopy(scores[i])
-#                         if self.verbose:
-#                             print("with score:",scores[i])
-#                     else:
-#                         if self.verbose:
-#                             print()
+                    del enveap
+            del mutations
+            del distances
+            del eapscores
+            del bestagents
+            del curgens
         return
     
     def getscore(self,agentid,eap):
@@ -373,10 +387,11 @@ class POET():
             agenteap = self.geteapfromid(agentid)
             
         if (not agenteap.bestagentupdated) and eap.id >= 0:
-            score = agenteap.eapscores[agentid]                
+            score = agenteap.eapscores[agentid]          
         else:
             ftfend,fused,cvisited,_ = eap.findbehaviour(agenteap.getbestagent())
             score = eap.score(ftfend,cvisited,fused)
+        del agenteap
         return score
     
     def getpataec(self,eap,return_scores = False):
@@ -432,7 +447,8 @@ class POET():
                 print("getting pataec for eap", i)
             eap = self.geteapfromid(i)
             pataecs = np.append(pataecs,self.getpataec(eap),axis = 0)
-                
+            del eap
+
         scoresonchildren = []
         childpataecs, scoresonchild= self.getpataec(children[0],return_scores = True)
         scoresonchildren.append(scoresonchild)
@@ -447,10 +463,12 @@ class POET():
         
         if self.verbose:
             print("setting best agent updated to false")
+        
         for eapid in self.activeeaps:
             eap = self.geteapfromid(eapid)
             eap.bestagentupdated = False
-            
+            eap.save(self.eappath)
+            del eap
         return pataecs, childpataecs, scoresonchildren
     
     def findchildorder(self,pataecs,newpataecs):        
@@ -484,6 +502,7 @@ class POET():
             for eapid in range(self.activeeaps[-1]+1):
                 eap = self.geteapfromid(eapid)
                 newenv = eap.env.isdifferent(child.env)
+                del eap
                 if not newenv:
                     break
             if newenv:
@@ -506,6 +525,7 @@ class POET():
     
     def geteapfromid(self,eapid):
         eap = EnvAgentPair(2,2)
+        #eap.load(self.eappath,eapid,verbose = self.verbose) #too much printing
         eap.load(self.eappath,eapid)
         return eap
     
@@ -513,11 +533,14 @@ class POET():
         eap = self.geteapfromid(eapid)
         eap.trainstep()
         eap.save(self.eappath)
+        del eap
         return
     
     def save(self,path = None):
         if path is None:
             path = self.path
+        if self.verbose:
+            print("saving iteration {} to {}".format(self.curiters,path))
         file = open(path+'poet_iter{}.pickle'.format(self.curiters),'wb+')
         file.write(pickle.dumps(self.__dict__))
         file.close()
@@ -526,6 +549,8 @@ class POET():
     def load(self,curiters,path = None):
         if path is None:
             path = self.path
+        if self.verbose:
+            print("loading iteration {} from {}".format(curiters,path))
         file = open(path+'poet_iter{}.pickle'.format(curiters),'rb')
         data = file.read()
         file.close()
