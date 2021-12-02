@@ -405,6 +405,7 @@ class POET():
         origscores = []
         allsolved = True
         for i in range(self.activeeaps[-1]+1):
+            print("testing id:",i)
             score = self.getscore(i,eap)
             origscores.append(score)
             
@@ -534,6 +535,25 @@ class POET():
         eap.trainstep()
         eap.save(self.eappath)
         del eap
+        return
+    
+    def loadlastsave(self):
+        if os.path.isdir(self.path):
+            contents = os.listdir(self.path)
+        else:
+            contents = []
+
+        saveiters = []
+        for name in contents:
+            if name[:9] == "poet_iter":
+                start = name.split(".")[0]
+                iternum = int(start[9:])
+                saveiters.append(iternum)
+        maxiter = 0
+        if len(saveiters) > 0:
+            maxiter = max(saveiters)
+        if maxiter > 0:
+            self.load(maxiter)
         return
     
     def save(self,path = None):

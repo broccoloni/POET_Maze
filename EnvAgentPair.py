@@ -422,9 +422,11 @@ class EnvAgentPair():
     
     def renderagent(self,gen,mutind):
         agent = self.getagent(gen,mutind)
-        ftfend, fused, behaviour = self.findbehaviour(agent,render = True)
+        ftfend, fused, cvisited,behaviour = self.findbehaviour(agent,render = True)
         print("Frames to find end:\t[{}/{}]".format(ftfend+1,self.maxframes))
         print("Frames used:\t\t[{}/{}]".format(fused+1,self.maxframes))
+        print("Cells visited:\t[{}/{}]".format(cvisited,self.y*self.x))
+        print("Score:\t\t",self.score(ftfend,cvisited,fused))
         print("Behaviour:\n",behaviour)
         print("Generating animation...",end = "\t")
         vid = self.env.makegif()
@@ -433,9 +435,11 @@ class EnvAgentPair():
     
     def rendertopagent(self):
         agent = self.getbestagent()
-        ftfend,fused,behaviour = self.findbehaviour(agent,render = True)
+        ftfend,fused,cvisited,behaviour = self.findbehaviour(agent,render = True)
         print("Frames to find end:\t[{}/{}]".format(ftfend+1,self.maxframes))
         print("Frames used:\t\t[{}/{}]".format(fused+1,self.maxframes))
+        print("Cells visited:\t[{}/{}]".format(cvisited,self.y*self.x))
+        print("Score:\t\t",self.score(ftfend,cvisited,fused))
         print("Behaviour:\n",behaviour)
         print("Generating animation...",end = "\t")
         vid = self.env.makegif()
@@ -612,6 +616,7 @@ class EnvAgentPair():
         data = file.read()
         file.close()
         self.__dict__ = pickle.loads(data)
+        self.updateagent()
         return
 
 
