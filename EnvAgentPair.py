@@ -496,7 +496,8 @@ class EnvAgentPair():
                            repeat_delay    = self.repeat_delay,
                            psizemut        = self.psizemut,
                            nummuts         = self.nummuts,
-                           mazemutpower    = self.mazemutpower)
+                           mazemutpower    = self.mazemutpower,
+                           numreps         = self.numreps)
         
         eap.agentarch          = deepcopy(self.agentarch)       
         eap.agentdict          = deepcopy(self.agentdict)
