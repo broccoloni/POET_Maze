@@ -163,7 +163,7 @@ class POET():
         children = self.env_reproduce(validparents)
         
         #check min criteria
-        passing_children, allagentids, activescoresonchildren = self.childmincriteria(children)
+        passing_children, allagentids = self.childmincriteria(children)
         children = [children[i] for i in passing_children]
 
         if len(children) == 0:
@@ -173,7 +173,7 @@ class POET():
         if self.verbose:
             print("calculating pataecs")
         #get current, archived, and child environmental characterizations
-        pataecs, childpataecs, scoresonchildren = self.getallpataecs(children,activescoresonchildren)
+        pataecs, childpataecs, scoresonchildren = self.getallpataecs(children)
         
         #choose children based on sufficient novelty of agent behaviour
         admitted = 0
@@ -377,7 +377,7 @@ class POET():
         del agenteap
         return score
     
-    def getpataec(self,eap,activescoresonchild = None, return_scores = False):
+    def getpataec(self,eap, return_scores = False):
         if self.activeeaps[-1] == 0:
             if return_scores:
                 return np.array([[0]]), [self.getscore(0,eap)]
@@ -387,11 +387,9 @@ class POET():
         clippedscores  = []
         origscores = []
         allsolved = True
+                
         for i in range(self.activeeaps[-1]+1):
-            if activescoresonchild is not None and i >= self.activeeaps[0]:
-                score = activescoresonchild[i-self.activeeaps[0]]
-            else:
-                score = self.getscore(i,eap)
+            score = self.getscore(i,eap)
                 
             if return_scores:
                 origscores.append(score)
@@ -425,7 +423,7 @@ class POET():
             return pataec,origscores
         return pataec
         
-    def getallpataecs(self,children,activescoresonchildren):
+    def getallpataecs(self,children):
         if self.verbose:
             print("getting pataec for eap", 0)
         pataecs = self.getpataec(self.geteapfromid(0))
@@ -438,7 +436,6 @@ class POET():
 
         scoresonchildren = []
         childpataecs, scoresonchild = self.getpataec(children[0],
-                                                     activescoresonchild = activescoresonchildren[0],
                                                      return_scores = True)
         scoresonchildren.append(scoresonchild)
         for i,child in enumerate(children):
@@ -447,7 +444,6 @@ class POET():
             if i == 0:
                 continue
             childpataec, scoresonchild = self.getpataec(child, 
-                                                        activescoresonchild = activescoresonchildren[i],
                                                         return_scores = True)
             scoresonchildren.append(scoresonchild)
             childpataecs = np.append(childpataecs,childpataec,axis = 0)
@@ -484,7 +480,6 @@ class POET():
             print("Testing children minimal criteria")
         passing_children = []
         passing_agent_ids = []
-        activescoresonchildren = []
         
         for i,child in enumerate(children):
             if self.verbose:
@@ -499,20 +494,19 @@ class POET():
             if newenv:
                 if self.verbose:
                     print("pass,\t minimum criteria: ",end = "\t")
-                passers, scores = self.evaluate_candidates(child)
+                passers, scores = self.evaluate_candidates(child) #should keep track of these to save a bit of compute in pataec
                 if len(passers) > 0:
                     if self.verbose:
                         print("pass")
                     passing_children.append(i)
                     passing_agent_ids.append(passers)
-                    activescoresonchildren.append(scores)
                 else:
                     if self.verbose:
                         print("fail")
             else:
                 if self.verbose:
                     print("fail")
-        return passing_children, passing_agent_ids, activescoresonchildren
+        return passing_children, passing_agent_ids
     
     def geteapfromid(self,eapid):
         eap = EnvAgentPair(self.starty,
