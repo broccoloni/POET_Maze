@@ -40,7 +40,7 @@ class POET():
         self.sigmadecay    = sigmadecay
         self.mutfreq       = mutfreq
         self.transferfreq  = transferfreq
-        self.eps           = eps
+        self.eps           = eps #int from 0 - 100, then gets / 100 to be from 0 - 1. likelihood of choosing suboptimal transfer
         self.seed          = seed
         self.savefreq      = savefreq
         self.framespercell = framespercell
@@ -67,7 +67,7 @@ class POET():
             os.mkdir(self.savedir)
         if not os.path.isdir(self.savedir+"POETsaves/"):
             os.mkdir(self.savedir+"POETsaves/")
-        self.path = self.savedir + "POETsaves/poeteps{}v{}n{}/".format(int(self.eps*100),self.version,self.numreps)
+        self.path = self.savedir + "POETsaves/poetv{}eps{}n{}/".format(self.version,self.eps,self.numreps)
         self.eappath  = self.path+"eaps/"
         if not os.path.isdir(self.path):
             os.mkdir(self.path)
@@ -305,7 +305,7 @@ class POET():
         arrscores = np.array(scores)
         ftfendscores = arrscores[:,0]
         fusedscores = arrscores[:,2]
-        if p < 1-self.eps:
+        if p < 1-self.eps/100:
             maxinds = np.where(fusedscores == fusedscores.max())[0]
             if len(maxinds) > 1:
                 return maxinds[np.argmax(ftfendscores[maxinds])]
