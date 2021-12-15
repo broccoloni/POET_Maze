@@ -7,7 +7,7 @@ if __name__ == "__main__":
         ind = i//samples
         path = "job{}.sh".format(i)
         print("making job",i,"path:",path)
-        outfile = "poetv{}eps{}reps{}.out".format(v,eps[ind],reps[ind])
+        outfile = "./jobs/poetv{}eps{}reps{}.out".format(v,eps[ind],reps[ind])
         f = open(path,"w+")
         f.write("#!/bin/bash\n")
         f.write("#SBATCH --time=10:00:00\n")

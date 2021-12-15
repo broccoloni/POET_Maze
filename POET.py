@@ -67,7 +67,7 @@ class POET():
             os.mkdir(self.savedir)
         if not os.path.isdir(self.savedir+"POETsaves/"):
             os.mkdir(self.savedir+"POETsaves/")
-        self.path = self.savedir + "POETsaves/poetv{}eps{}n{}/".format(self.version,self.eps,self.numreps)
+        self.path = self.savedir + "POETsaves/poetv{}eps{}reps{}/".format(self.version,self.eps,self.numreps)
         self.eappath  = self.path+"eaps/"
         if not os.path.isdir(self.path):
             os.mkdir(self.path)

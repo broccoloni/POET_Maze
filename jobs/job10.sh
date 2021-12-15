@@ -5,4 +5,4 @@
 #SBATCH --mem-per-cpu=32G
 source ~/lgraha/bin/activate
 cd ~/scratch/POET_Maze/
-python runpoet.py 0 0 1 &>> poetv0eps0reps1.out
+python runpoet.py 0 0 1 &>> ./jobs/poetv0eps0reps1.out
