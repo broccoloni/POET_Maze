@@ -8,50 +8,58 @@ def fclayer(inchannels,outchannels):
     return fc
 
 class Agent(nn.Module):
-    def __init__(self,inshape = [7,7],hiddensize = 100,numlayers = 2,outsize = 10):
+    def __init__(self,inshape = [7,7],hiddensize = 100,numlayers = 2,numreps = 5):
         super(Agent,self).__init__()
         #inputs will be small, so I'll flatten it and use a fully connected network
         self.insize = np.prod(inshape)
         self.hiddensize = hiddensize
         self.numlayers = numlayers
-        self.outsize = outsize
+        self.numreps = numreps
         self.numparams = 0
         
         self.lstm = nn.LSTMCell(self.insize,self.hiddensize)
         self.hidden_state = (torch.zeros(1,self.hiddensize),
                              torch.zeros(1,self.hiddensize))
         
-        self.fc   = nn.Linear(self.hiddensize,self.outsize)
+        self.outactions = nn.Linear(self.hiddensize,5) #5 movement actions, l,r,u,d,stay
+        self.outreps = nn.Linear(self.hiddensize,self.numreps)
         
     def forward(self,x):
         out = x.reshape(x.size(0),-1) 
         self.hidden_state = self.lstm(out,self.hidden_state) 
-        out = self.fc(self.hidden_state[0])
-
-        if self.outsize != 1:
-            out = nn.Softmax(dim = 1)(out)
-            out = out.flatten()
+        actions = self.outactions(self.hidden_state[0])
+        reps = self.outreps(self.hidden_state[0])
+        
+        actions = nn.Softmax(dim = 1)(actions)
+        actions = actions.flatten()
+        
+        if self.numreps != 1:
+            reps = nn.Softmax(dim = 1)(reps)
+            reps = reps.flatten()
                         
-        return out
+        return actions,reps
     
-    def mutate(self,coefs,mutations):
-        if isinstance(coefs,float):
-            if coefs != 0:
-                for i,name in enumerate(self.state_dict()):
-                    torch.manual_seed(mutations+i) #seed+i for each layer is still sampling from N,
-                                              #it's just easier to do it for each layer individually
-                    shape = self.state_dict()[name].shape
-                    self.state_dict()[name] += coefs * torch.empty(shape).normal_(mean=0,std=1)
-       
-        else:
-            for j in range(len(coefs)):
-                coef,mut = coefs[j],mutations[j]
-                if coef != 0:
-                    for i,name in enumerate(self.state_dict()):
-                        torch.manual_seed(mut+i) #seed+i for each layer is still sampling from N,
-                                                  #it's just easier to do it for each layer individually
-                        shape = self.state_dict()[name].shape
-                        self.state_dict()[name] += coef * torch.empty(shape).normal_(mean=0,std=1)
+    def reset(self):
+        self.hidden_state = (torch.zeros(1,self.hiddensize),
+                             torch.zeros(1,self.hiddensize))
+    
+    def mutate(self,coef,mut):
+        if coef != 0:
+            for i,name in enumerate(self.state_dict()):
+                torch.manual_seed(mut+i) #seed+i for each layer is still sampling from N,
+                                          #it's just easier to do it for each layer individually
+                shape = self.state_dict()[name].shape
+                self.state_dict()[name] += coef * torch.empty(shape).normal_(mean=0,std=1)
+
+#         else:
+#             for j in range(len(coefs)):
+#                 coef,mut = coefs[j],mutations[j]
+#                 if coef != 0:
+#                     for i,name in enumerate(self.state_dict()):
+#                         torch.manual_seed(mut+i) #seed+i for each layer is still sampling from N,
+#                                                   #it's just easier to do it for each layer individually
+#                         shape = self.state_dict()[name].shape
+#                         self.state_dict()[name] += coef * torch.empty(shape).normal_(mean=0,std=1)
         
     
     def save(self,filename,optimizer,measures = None):

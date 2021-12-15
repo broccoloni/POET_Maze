@@ -41,7 +41,7 @@ class Maze():
         self.render               = False 
         self.ims                  = []
         self.paddedmaze           = None #here since amount of padding depends on obsrad
-        self.numactions           = 10
+        self.reps                 = 5
         #generate the maze
         self.generate_kruskals()
         
@@ -319,7 +319,7 @@ class Maze():
         self.maze[(y+1)*(self.p_width+1),
                   x*(self.p_width+1)+1:(x+1)*(self.p_width+1)] = val
         
-    def reset(self,numagents = 10,obssize = 7,exitfoundreward = 0, render = False,numactions = 10):
+    def reset(self,numagents = 10,obssize = 7,exitfoundreward = 0, render = False,numreps = 5):
         #reset agent specific params
         self.stepnum = 0
         self.numagents = numagents
@@ -330,7 +330,7 @@ class Maze():
         self.endfound = False
         self.render = render #if true, saves image of every step in self.ims and creates a gif when done
         self.ims = []
-        self.numactions = numactions
+        self.numreps = numreps
         self.paddedmaze = np.pad(deepcopy(self.maze),
                                  ((self.obsrad,self.obsrad),(self.obsrad,self.obsrad)),'edge') #to make getting obs easier
         
@@ -355,7 +355,7 @@ class Maze():
         self.renderer()
         return obs
         
-    def step(self,actions):
+    def step(self,movements,reps):
         #action meanings:
         #0  - move up
         #1  - move right
@@ -363,24 +363,31 @@ class Maze():
         #3  - move left
         #4+ - make representation 3+
         obsercations = []
-        for i,action in enumerate(actions):
+        for i in range(len(movements)):
+            movement = movements[i]
+            representation = reps[i]
+            
             agentpos = self.agentlocs[i]
             y,x = agentpos[0],agentpos[1]
-            #action 0
-            if action == 0 and not self.isoccupied(y-1,x):
+            
+            #movements
+            #movement 0
+            if movement == 0 and not self.isoccupied(y-1,x):
                 self.agentlocs[i][0] -=  1
-            #action 1
-            if action == 1 and not self.isoccupied(y,x+1):
+            #movement 1
+            if movement == 1 and not self.isoccupied(y,x+1):
                 self.agentlocs[i][1] += 1
-            #action 2
-            if action == 2 and not self.isoccupied(y+1,x):
+            #movement 2
+            if movement == 2 and not self.isoccupied(y+1,x):
                 self.agentlocs[i][0] += 1
-            #action 3
-            if action == 3 and not self.isoccupied(y,x-1):
+            #movement 3
+            if movement == 3 and not self.isoccupied(y,x-1):
                 self.agentlocs[i][1] -= 1
-            #action 4+
-            if action >= 4:
-                self.agentrepresentations[i] = action-1
+            #movement 4
+            #do nothing
+
+            #representations
+            self.agentrepresentations[i] = representation+3 #+3 because other values are reserved for wall/passage/end
         
         self.updateagentmask()
         obs = self.getobs()
@@ -615,7 +622,7 @@ class Maze():
                 #update agent location colour
                 r[self.agentmask != 0] = 0
                 g[self.agentmask != 0] = 0
-                b[self.agentmask != 0] = ((255 - obsshift)*(1 - (self.agentmask[self.agentmask != 0]-2)/(self.numactions-4))).reshape(-1,1)
+                b[self.agentmask != 0] = ((255 - obsshift)*(1 - (self.agentmask[self.agentmask != 0]-2)/self.numreps)).reshape(-1,1)
 
             im = np.stack((r,g,b),axis = 2).squeeze().astype(np.uint8)
             #make sure everything is in the range
